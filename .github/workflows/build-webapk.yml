@@ -1,0 +1,60 @@
+name: Build WebAPK
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-web:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Build Web App
+        run: npm run build
+
+      - name: Upload Web Dist Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-build
+          path: dist/
+
+  # Note: To build a proper WebAPK (TWA), Google's Bubblewrap CLI requires a deployed URL
+  # because Android verifies the Digital Asset Links (assetlinks.json) on the live domain.
+  # This job demonstrates how to initialize Bubblewrap once your app is deployed.
+  build-apk:
+    needs: build-web
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Bubblewrap CLI
+        run: npm install -g @google/bubblewrap
+
+      - name: Build APK Instructions
+        run: |
+          echo "================================================================"
+          echo "WebAPK (TWA) Build Step Reached!"
+          echo "To fully compile an APK using Bubblewrap, you must:"
+          echo "1. Host the 'dist' folder generated in the previous step (e.g. GitHub Pages, Vercel)."
+          echo "2. Run the following command with your LIVE URL:"
+          echo "   bubblewrap init --manifest=https://YOUR_LIVE_URL.com/manifest.json"
+          echo "3. Run 'bubblewrap build' to compile the .apk file."
+          echo "================================================================"

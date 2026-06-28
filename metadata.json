@@ -1,0 +1,6 @@
+{
+  "name": "Typing Speed Test",
+  "description": "A very simple PWA typing speed tester.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

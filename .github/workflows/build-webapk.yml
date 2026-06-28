@@ -27,20 +27,41 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Install Bubblewrap CLI
-        run: npm install -g @google/bubblewrap
+        run: npm install -g @bubblewrap/cli
 
-      - name: Initialize & Build TWA
+      - name: Configure Bubblewrap
         run: |
-          echo "================================================================"
-          echo "Building WebAPK for maximum performance via Trusted Web Activity"
-          echo "Target URL: https://loki-x-prime.vercel.app"
-          echo ""
-          echo "Note: Bubblewrap requires an interactive setup locally first to"
-          echo "generate a 'twa-manifest.json' and a signing key (keystore)."
-          echo "Once generated, commit 'twa-manifest.json' to your repo and"
-          echo "store the keystore in GitHub Secrets to fully automate this."
-          echo ""
-          echo "Example automated build command:"
-          echo "bubblewrap build --manifest=twa-manifest.json"
-          echo "================================================================"
+          mkdir -p ~/.bubblewrap
+          echo "{\"jdkPath\":\"$JAVA_HOME\",\"androidSdkPath\":\"$ANDROID_HOME\"}" > ~/.bubblewrap/config.json
+
+      - name: Generate Keystore
+        run: |
+          keytool -genkey -v -keystore android.keystore -alias android -keyalg RSA -keysize 2048 -validity 10000 -storepass password -keypass password -dname "CN=loki-x-prime.vercel.app, OU=App, O=Loki, L=City, S=State, C=US"
+
+      - name: Run Bubblewrap Init
+        run: |
+          sudo apt-get install -y expect
+          cat << 'EOF' > run_init.exp
+          set timeout -1
+          spawn bubblewrap init --manifest=https://loki-x-prime.vercel.app/manifest.json
+          expect {
+            "Key store location" { send "./android.keystore\r"; exp_continue }
+            "Key name" { send "android\r"; exp_continue }
+            "Password for the Key Store" { send "password\r"; exp_continue }
+            "Password for the Key" { send "password\r"; exp_continue }
+            -re "\\? .*\\(Y/n\\)" { send "y\r"; exp_continue }
+            -re "\\? .*" { send "\r"; exp_continue }
+            eof
+          }
+          EOF
+          expect run_init.exp
+
+      - name: Build APK
+        run: bubblewrap build --keyPassword password --keystorePassword password
+        
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: loki-x-prime-app.apk
+          path: app-release-signed.apk
 
